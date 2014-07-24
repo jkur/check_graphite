@@ -47,10 +47,11 @@ functionmap = {
 }
 
 graphite = Plugin("Plugin to retrieve data from graphite", "1.0")
-graphite.add_option("u", "url", "URL to query for data", required=True)
+graphite.add_option("u", "url", "URL to query for data", default="http://localhost/")
+graphite.add_option("m", "metric", "metric query for data", required=True)
+graphite.add_option("t", "time", "time range to evaluate data", default=5)
 graphite.add_option("U", "username", "User for authentication")
 graphite.add_option("P", "password", "Password for authentication")
-graphite.add_option("H", "hostname", "Host name to use in the URL")
 graphite.add_option("n", "none", "Ignore None values: 'yes' or 'no' (default no)")
 graphite.add_option("s", "status_message", "Status Message (default function value of metric: value)",default=None)
 graphite.add_option("f", "function", "Function to run on retrieved values: avg/min/max/last/sum (default 'avg')",
@@ -69,11 +70,19 @@ if graphite.options.username and graphite.options.password:
 	opener = urllib2.build_opener(auth_handler)
 	urllib2.install_opener(opener)
 
-if graphite.options.hostname:
-  graphite.options.url = graphite.options.url.replace('@HOSTNAME@', 
-    graphite.options.hostname.replace('.','_'))
+##if graphite.options.hostname:
+#  graphite.options.url = graphite.options.url.replace('@HOSTNAME@', 
+#    graphite.options.hostname.replace('.','_'))
 
-usock = urllib2.urlopen(graphite.options.url)
+
+
+#http://unigro-graphite/render/?target=jmxtrans.dvpluniz01.jvm.nonHeapMemoryUsage.used&format=raw&from=-5min
+# build url
+# url = http://localhost
+query = '{url}/render/?target={metric}&format=raw&from=-{time}min'.format(url=graphite.options.url,
+                                                                          metric=graphite.options.metric,
+                                                                          time=graphite.options.time)
+usock = urllib2.urlopen(query)
 data = usock.read()
 usock.close()
 
