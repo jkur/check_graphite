@@ -1,0 +1,117 @@
+#!/usr/bin/env python
+
+import requests
+import optparse
+import sys
+
+### Basic Nagios exit status
+OK = 0
+WARNING = 1
+CRITICAL = 2
+UNKNOWN = 3
+
+def unknown(msg='no response from graphite'):
+    print "UNKNOWN: {msg}".format(msg=msg)
+    sys.exit(UNKNOWN)
+
+def critical(msg=''):
+    print "CRITICAL: {msg}".format(msg=msg)
+    sys.exit(CRITCAL)
+
+def warning(msg=''):
+    print "WARNING: {msg}".format(msg=msg)
+    sys.exit(WARNING)
+
+def ok(msg=''):
+    print "OK: {msg}".format(msg=msg)
+    sys.exit(OK)
+    
+
+parser = optparse.OptionParser()
+
+parser.add_option('-w', action='store', dest='warning', type=float, nargs=3, help='Warning  Values (0.1,0.2,0,3)')
+parser.add_option('-c', action='store', dest='critical', type=float, nargs=3, help='critical Values (0.1,0.2,0,3)')
+parser.add_option('-H', action='store', dest='hostname', help='the hostname')
+parser.add_option('-t', action='store', dest='time', help='time to look at', default='1min')
+parser.add_option('-g', action='store', dest='graphitehost', help='graphitehost')
+
+(options, args) = parser.parse_args()
+
+
+targets = [
+    '{prefix}.{hostname}.load.load.shortterm'.format(prefix='collectd', hostname = options.hostname),
+    '{prefix}.{hostname}.load.load.midterm'.format(prefix='collectd', hostname = options.hostname),
+    '{prefix}.{hostname}.load.load.longterm'.format(prefix='collectd', hostname = options.hostname),
+]
+
+payload = {'format': 'raw',
+           'from': '-{time}'.format(time=options.time),
+           'target': targets,
+           }
+
+r = requests.get("http://{host}/render/".format(host=options.graphitehost), params=payload)
+
+if r.status_code != requests.codes.ok:
+    unknown()
+
+
+plugin_output = ""
+nagios_state = OK
+
+try:
+    for line in r.text.split('\n'):
+        line = line.strip()
+        if not len(line):
+            continue
+        (counter, values) = line.split('|')
+        counter = counter.split(',')[0]
+        # split values by comma
+        values = values.split(',')
+        # remove any occurence of none
+        # and convert to float values
+        values = map(lambda x: float(x), filter(lambda x: x != 'None', values))
+        # average the value
+        avg = sum(values)/len(values)
+        ## get warning and critical values
+        crit = None
+        warn = None
+        if counter.endswith('shortterm'):
+            crit = options.critical[0]
+            warn = options.warning[0]
+        elif counter.endswith('midterm'):
+            crit = options.critical[1]
+            warn = options.warning[1]
+        elif counter.endswith('longterm'):
+            crit = options.critical[2]
+            warn = options.warning[2]
+            
+        ## check critical, warning, okay
+        if avg >= warn and avg < crit:
+            # WARN
+            plugin_output += "{counter} is in WARNING range ({warn}-{crit}): {value} ".format(counter=counter.split('.')[-1], warn=warn, crit=crit, value=avg)
+            if nagios_state < WARNING:
+                nagios_state = WARNING
+        if avg >= crit:
+            # CRIT
+            if nagios_state < CRITICAL:
+                nagios_state = CRITICAL
+            plugin_output += "{counter} is in CRITICAL range ({warn}-{crit}): {value} ".format(counter=counter.split('.')[-1], warn=warn, crit=crit, value=avg)
+        if avg >= 0.0 and avg < warn:
+            # OK
+            plugin_output += "{counter}: {value} ".format(counter=counter.split('.')[-1], value=avg)
+        if avg < 0:
+            plugin_output += "BAD: {counter}: {value} ".format(counter=counter.split('.')[-1], value=avg)
+            # UNKNOWN
+        
+except Exception as e:
+    print e
+    unknown('Graphite returned bad data')
+    
+if nagios_state == OK:
+    ok(plugin_output)
+
+if nagios_state == WARNING:
+    warning(plugin_output)
+
+if nagios_state == CRITICAL:
+    critical(plugin_output)
