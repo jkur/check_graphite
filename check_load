@@ -37,7 +37,7 @@ parser.add_option('-w', action='callback', type=str, dest='warning', callback=sp
 parser.add_option('-c', action='callback', type=str, dest='critical', callback=split_args_callback, help='critical Values (0.1,0.2,0,3)')
 parser.add_option('-H', action='store', dest='hostname', help='the hostname')
 parser.add_option('-t', action='store', dest='time', help='time to look at', default='1min')
-parser.add_option('-g', action='store', dest='graphitehost', help='graphitehost')
+parser.add_option('-g', action='store', dest='graphitehost', help='graphitehost', default='localhost')
 
 (options, args) = parser.parse_args()
 
