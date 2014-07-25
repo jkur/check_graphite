@@ -16,7 +16,7 @@ def unknown(msg='no response from graphite'):
 
 def critical(msg=''):
     print "CRITICAL: {msg}".format(msg=msg)
-    sys.exit(CRITCAL)
+    sys.exit(CRITICAL)
 
 def warning(msg=''):
     print "WARNING: {msg}".format(msg=msg)
