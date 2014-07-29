@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>check with graphite by jkur</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>check with graphite</h1>
+        <p>Nagios / Icinga checks based on graphite data collected by collectd or jmxtrans</p>
+
+        <p class="view"><a href="https://github.com/jkur/check_graphite">View the Project on GitHub <small>jkur/check_graphite</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/jkur/check_graphite/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/jkur/check_graphite/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/jkur/check_graphite">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h3>
+<a name="welcome-to-check_graphite-suite" class="anchor" href="#welcome-to-check_graphite-suite"><span class="octicon octicon-link"></span></a>Welcome to check_graphite suite</h3>
+
+<p>Using graphite as the main data source for your monitoring leaves you with almost no tools to alert you on failure.</p>
+
+<p>The combination of collectd agents running on your host and graphite/carbon/whipser on you monitoring server is small and also quite easy to setup.</p>
+
+<p>If you're using icinga2 there is already some graphite support but only for storing performance data.</p>
+
+<p>We would like to use graphite as a data source. Collectd e.g. pushes metric to graphite, like disk usage, swap, mem, load. On the monitoring server we can use a check such as check_graphite (several different options here) to query the data.</p>
+
+<p>This is very unflexible. Imagine your data is spread over a few different counters and needs to be aggregated. E.g. load, with collectd there 3 values (1min,5min,15min as usual), check_graphite scripts usually can only test one value or sum or average multiple values.</p>
+
+<p>The script in this repository are special scripts to query graphite. Because querying graphite is so easy, we just write a dedicated script for each check we like to have.</p>
+
+<p>For example the check_df script pulls all disks and calculates the size.</p>
+
+<p>These check are easy to integrate into icinga/nagios</p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/jkur">jkur</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
