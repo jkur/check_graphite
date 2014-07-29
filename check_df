@@ -160,8 +160,8 @@ try:
         data = cleanup_output(r.text)
         data = calc_disk_capacity(data)
 
-        for disk, values in data[options.hostname].iteritems():
-            print disk, df_humanreadable(values['size'])
+        #for disk, values in data[options.hostname].iteritems():
+        #    print disk, df_humanreadable(values['size'])
         nagios_state = check_range_percent(data)
 
         for disk, values in data[options.hostname].iteritems():
