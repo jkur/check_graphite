@@ -1,0 +1,184 @@
+#!/usr/bin/env python
+
+import requests
+import optparse
+import sys
+
+### Basic Nagios exit status
+OK = 0
+WARNING = 1
+CRITICAL = 2
+UNKNOWN = 3
+
+# Global check value if check is absolute or percentage
+percentage = False
+
+
+def unknown(msg='no response from graphite'):
+    print "UNKNOWN: {msg}".format(msg=msg)
+    sys.exit(UNKNOWN)
+
+def critical(msg=''):
+    print "CRITICAL: {msg}".format(msg=msg)
+    sys.exit(CRITICAL)
+
+def warning(msg=''):
+    print "WARNING: {msg}".format(msg=msg)
+    sys.exit(WARNING)
+
+def ok(msg=''):
+    print "OK: {msg}".format(msg=msg)
+    sys.exit(OK)
+
+
+
+def check_args_callback(option, opt, value, parser):
+    if value.endswith('%'):
+        percentage = True
+        setattr( parser.values, option.dest, float(value[:-1]))
+    if value.endswith('K'):
+        percentage = False
+        setattr( parser.values, option.dest, float(value[:-1])*1024)
+    if value.endswith('M'):
+        percentage = False
+        setattr( parser.values, option.dest, float(value[:-1])*1024*1024)
+    if value.endswith('G'):
+        percentage = False
+        setattr( parser.values, option.dest, float(value[:-1])*1024*1024*1024)
+
+
+def cleanup_output(lines):
+    output = {}
+    # sort lines, so we can be sure all disk values are together
+    for line in sorted(lines.split('\n')):
+        line.strip()
+        if not len(line):
+            continue
+        (metric, data) = line.split('|')
+        metric = metric.split(',')[0]
+        # split values by comma
+        data = data.split(',')
+        # remove any occurence of none
+        # and convert to float values
+        data = map(lambda x: float(x), filter(lambda x: x != 'None', data))
+        (prefix,host,disk,value) = metric.split('.')
+        # clean disk name
+        disk = disk[3:]
+        # clean name of metric
+        value = value[11:]
+        # clean data
+        data = data[-1]
+        if not output.has_key(host):
+            output[host] = {}
+        if not output[host].has_key(disk):
+            output[host].update({disk: {} })
+        output[host][disk].update({value: data})
+    return output
+
+def calc_disk_capacity(diskdata):
+    for disk, values in data[options.hostname].iteritems():
+        capacity = values[u'free'] + values[u'used']
+        data[options.hostname][disk].update({'size': capacity})
+    return diskdata
+
+
+def df_humanreadable(bytes):
+    einheit = ['B', 'K', 'M', 'G', 'T']
+    idx = 0
+    while bytes > 1024:
+        bytes = round(bytes/1024.0)
+        idx+=1
+    ret = '%d.2%s' % (bytes, einheit[idx])
+    return ret
+
+
+
+def check_range_percent(data):
+    # in percent?
+    status = OK
+    for disk, values in data[options.hostname].iteritems():
+        disk_status =''
+        #print disk, values['size']
+        percentage_used = 100.0 * values[u'used'] / values[u'size']
+        if percentage_used < options.warning and percentage_used <= 100.0:
+            values.update({'status': OK})
+            values.update({'statustext': 'OK'})
+        if percentage_used >= options.warning and percentage_used < options.critical:
+            values.update({'status': WARNING})
+            values.update({'statustext': 'WARNING'})
+            if status < WARNING: status = WARNING
+        if percentage_used > options.critical:
+            values.update({'status': CRITICAL})
+            values.update({'statustext': 'CRITICAL'})
+            if status < CRITICAL: status = CRITICAL
+        values.update({'output': '/{disk} {used}/{size} {percentage_used}% Status: {status} '.format(disk=disk,
+                                                                                            used=df_humanreadable(values['used']),
+                                                                                            size=df_humanreadable(values['size']),
+                                                                                            percentage_used=round(percentage_used, 2),
+                                                                                            status=values['statustext']
+                                                                                            ) })
+    return status
+
+def check_range_absolut(data):
+    pass
+
+
+parser = optparse.OptionParser()
+
+parser.add_option('-w', action='callback', type=str, dest='warning', callback=check_args_callback, help='Warning value (percentage or absolute value in bytes')
+parser.add_option('-c', action='callback', type=str, dest='critical', callback=check_args_callback, help='critical Values (0.1)')
+parser.add_option('-H', action='store', dest='hostname', help='the hostname')
+parser.add_option('-d', action='store', dest='disk', help='the disk to monitor', default='*')
+parser.add_option('-t', action='store', dest='time', help='time to look at', default='1min')
+parser.add_option('-g', action='store', dest='graphitehost', help='graphitehost', default='localhost')
+
+(options, args) = parser.parse_args()
+
+
+# get all df metrics then parse
+# option which are interesting
+# blah
+targets = [
+    '{prefix}.{hostname}.df-{disk}.df_complex-*'.format(prefix='collectd', disk=options.disk, hostname=options.hostname),
+]
+
+payload = {'format': 'raw',
+           'from': '-{time}'.format(time=options.time),
+           'target': targets,
+           }
+
+r = requests.get("http://{host}/render/".format(host=options.graphitehost), params=payload)
+
+if r.status_code != requests.codes.ok:
+    unknown()
+
+
+plugin_output = ""
+nagios_state = OK
+
+try:
+        data = cleanup_output(r.text)
+        data = calc_disk_capacity(data)
+
+        for disk, values in data[options.hostname].iteritems():
+            print disk, df_humanreadable(values['size'])
+        nagios_state = check_range_percent(data)
+
+        for disk, values in data[options.hostname].iteritems():
+            plugin_output+="\n"+values['output']
+
+except Exception as e:
+    print e
+    unknown('Graphite returned bad data')
+
+if nagios_state == OK:
+    ok(plugin_output)
+
+if nagios_state == WARNING:
+    warning(plugin_output)
+
+if nagios_state == CRITICAL:
+    critical(plugin_output)
+
+if nagios_state == UNKNOWN:
+    critical(plugin_output)

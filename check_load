@@ -119,3 +119,6 @@ if nagios_state == WARNING:
 
 if nagios_state == CRITICAL:
     critical(plugin_output)
+
+if nagios_state == UNKNOWN:
+    critical(plugin_output)
